@@ -1,88 +1,150 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Add Movie</title>
+  <title>Movie Watchlist</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #111;
       color: white;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 100px;
+      padding: 40px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
     }
 
     input {
       padding: 10px;
-      width: 250px;
+      width: 300px;
       margin-right: 10px;
     }
 
     button {
       padding: 10px 15px;
-      cursor: pointer;
       background: red;
       color: white;
       border: none;
+      cursor: pointer;
     }
 
-    #result {
+    #results {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 150px);
+      gap: 20px;
+    }
+
+    .movie-card {
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .movie-card img {
+      width: 150px;
+      border-radius: 8px;
+    }
+
+    .movie-card:hover {
+      transform: scale(1.05);
+      transition: 0.2s;
+    }
+
+    #message {
       margin-top: 20px;
     }
   </style>
 </head>
 <body>
 
-  <h2>Add Movie to Watchlist</h2>
+  <h1>Add Movie</h1>
 
-  <div>
-    <input type="text" id="movieName" placeholder="Enter movie name" />
-    <button onclick="addMovie()">Add</button>
-  </div>
+  <input type="text" id="searchInput" placeholder="Search movie name" />
+  <button onclick="searchMovies()">Search</button>
 
-  <p id="result"></p>
+  <div id="message"></div>
+  <div id="results"></div>
 
   <script>
-    async function addMovie() {
-      const movieName = document.getElementById("movieName").value.trim();
-      const resultEl = document.getElementById("result");
+    const API_URL = "https://xctrunzwmgmhdfrawjls.functions.supabase.co/add-movie";
+    const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjdHJ1bnp3bWdtaGRmcmF3amxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5OTI3NTMsImV4cCI6MjA4NjU2ODc1M30.mlVrIh3P7U6z-nbU6rouOdwUJaUR5NX30MMute0Heuw";
 
-      if (!movieName) {
-        resultEl.innerText = "Enter a movie name";
+    async function searchMovies() {
+      const query = document.getElementById("searchInput").value.trim();
+      const resultsDiv = document.getElementById("results");
+      const message = document.getElementById("message");
+
+      if (!query) return;
+
+      message.innerText = "Searching...";
+      resultsDiv.innerHTML = "";
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + ANON_KEY,
+          "apikey": ANON_KEY
+        },
+        body: JSON.stringify({
+          action: "search",
+          query: query
+        })
+      });
+
+      const data = await response.json();
+
+      message.innerText = "";
+
+      if (!data.results || data.results.length === 0) {
+        message.innerText = "No results found.";
         return;
       }
 
-      resultEl.innerText = "Searching...";
+      data.results.forEach(movie => {
+        const card = document.createElement("div");
+        card.className = "movie-card";
 
-      try {
-        const response = await fetch(
-          "https://xctrunzwmgmhdfrawjls.functions.supabase.co/add-movie",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjdHJ1bnp3bWdtaGRmcmF3amxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5OTI3NTMsImV4cCI6MjA4NjU2ODc1M30.mlVrIh3P7U6z-nbU6rouOdwUJaUR5NX30MMute0Heuw",
-              "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjdHJ1bnp3bWdtaGRmcmF3amxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5OTI3NTMsImV4cCI6MjA4NjU2ODc1M30.mlVrIh3P7U6z-nbU6rouOdwUJaUR5NX30MMute0Heuw"
-            },
-            body: JSON.stringify({ query: movieName })
-          }
-        );
+        card.innerHTML = `
+          <img src="https://image.tmdb.org/t/p/w200${movie.poster_path}" />
+          <div>${movie.title}</div>
+        `;
 
-        const data = await response.json();
+        card.onclick = () => addMovie(movie.id, movie.title);
 
-        if (!response.ok) {
-          resultEl.innerText = "Error: " + (data.error || "Something went wrong");
-        } else {
-          resultEl.innerText = "Added: " + data.movie.title;
-        }
+        resultsDiv.appendChild(card);
+      });
+    }
 
-      } catch (err) {
-        resultEl.innerText = "Request failed";
+    async function addMovie(tmdbId, title) {
+      const message = document.getElementById("message");
+      message.innerText = "Adding " + title + "...";
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + ANON_KEY,
+          "apikey": ANON_KEY
+        },
+        body: JSON.stringify({
+          action: "add",
+          tmdb_id: tmdbId
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        message.innerText = "Added: " + data.movie.title;
+      } else {
+        message.innerText = "Error adding movie.";
       }
     }
   </script>
 
 </body>
 </html>
+
+
 
